@@ -9,42 +9,47 @@ class State(enum.Enum):
     accept = 1
     sink = 2
 
+# same class from the first stage, but with adjustments to save a state as a set of ints
 class Dfa:
     _alphabet: Set[str]
-    _initial_state: int
-    _final_states: Set[int]
+    _initial_state: Set[int]
+    _final_states: Set[Set[int]]
     _sink_states: Set[int]
-    _delta: Dict[Tuple[int, str], int]
+    _delta: Dict[Tuple[Set[int], str], Set[int]]
     _token: str
     _current_state: int
     _state: int
     _last_position_input_accepted: int
+    map_from_set_states_to_normal_state: Dict[Set[int], int]
 
     def __str__(self) -> str:
-        return str(self._alphabet) + '\n' + str(self._initial_state) + '\n' + str(self._final_states) + '\n' + str(self._delta) + '\n' + str(self._token)
+        return str(self._alphabet) + '\n' + str(self._initial_state) + '\n' + str(self._final_states) + '\n' + str(self._delta) + '\n'
 
     def __init__(self, lines: List[str]):
         self._alphabet = set()
         self._final_states = set()
         self._delta = dict()
         self._sink_states = set()
-        alphabet = lines[0]
-        token = lines[1]
-        initial_state = lines[2]
-        for character in string_escape(alphabet[0 : -1]):
-            self._alphabet.add(character)
-        self._token = token[0 : len(token) - 1]
-        self._initial_state = int(initial_state[0 : len(initial_state) - 1])
+        self.map_from_set_states_to_normal_state = dict()
+        self._initial_state = set()
+        if len(lines) != 0:
+            alphabet = lines[0]
+            token = lines[1]
+            initial_state = lines[2]
+            for character in string_escape(alphabet[0 : -1]):
+                self._alphabet.add(character)
+            self._token = token[0 : len(token) - 1]
+            self._initial_state = int(initial_state[0 : len(initial_state) - 1])
 
-        for line in lines[3 : -1]:
-            transition = line.split(',')
-            self._delta[(int(transition[0]), string_escape(transition[1][1 : -1]))] = int(transition[2])
-        for final_state in lines[-1].split(' '):
-            self._final_states.add(int(final_state))
-        self._state = State.initial
-        self._last_position_input_accepted = -1
-        self._current_state = self._initial_state
-        self.compute_sink_states()
+            for line in lines[3 : -1]:
+                transition = line.split(',')
+                self._delta[(int(transition[0]), string_escape(transition[1][1 : -1]))] = int(transition[2])
+            for final_state in lines[-1].split(' '):
+                self._final_states.add(int(final_state))
+            self._state = State.initial
+            self._last_position_input_accepted = -1
+            self._current_state = self._initial_state
+            self.compute_sink_states()
 
 
     def step(self, word: str, position):

@@ -93,81 +93,98 @@ def is_stack_reduceable(stack: List) -> bool:
     top = stack.pop()
 
     if isinstance(top, Symbol):
-        stack.append(top)
-        top.nfa.initial_state = Nfa.number_of_states
-        top.nfa.final_state = Nfa.number_of_states + 1
-        top.nfa.delta.append([top.nfa.initial_state, top.__str__(), top.nfa.final_state])
-        Nfa.number_of_states += 2
+        convert_symbol_to_nfa(stack, top)
         return True and len(stack) != 1
 
     if isinstance(top, Concat):
         if top._expr2 != None and top._expr1 != None:
-            stack.append(top)
-            top.nfa.initial_state = top._expr1.nfa.initial_state
-            top.nfa.final_state = top._expr2.nfa.final_state
-            for tranzition in top._expr1.nfa.delta:
-                top.nfa.delta.append(tranzition)
-            for tranzition in top._expr2.nfa.delta:
-                top.nfa.delta.append(tranzition)
-            top.nfa.delta.append([top._expr1.nfa.final_state, None, top._expr2.nfa.initial_state])
+            convert_concat_to_nfa(stack, top)
             return True and len(stack) != 1
 
     if isinstance(top, Union):
         if top._expr2 != None and top._expr1 != None:
-            stack.append(top)
-            top.nfa.initial_state = Nfa.number_of_states
-            top.nfa.final_state = Nfa.number_of_states + 1
-            for tranzition in top._expr1.nfa.delta:
-                top.nfa.delta.append(tranzition)
-            for tranzition in top._expr2.nfa.delta:
-                top.nfa.delta.append(tranzition)
-            top.nfa.delta.append([top.nfa.initial_state, None, top._expr1.nfa.initial_state])
-            top.nfa.delta.append([top.nfa.initial_state, None, top._expr2.nfa.initial_state])
-            top.nfa.delta.append([top._expr1.nfa.final_state, None, top.nfa.final_state])
-            top.nfa.delta.append([top._expr2.nfa.final_state, None, top.nfa.final_state])
-            Nfa.number_of_states += 2
+            conver_union_to_nfa(stack, top)
             return True and len(stack) != 1
 
     if isinstance(top, Star):
         if top._expr != None:
-            stack.append(top)
-            top.nfa.initial_state = Nfa.number_of_states
-            top.nfa.final_state = Nfa.number_of_states + 1
-            for tranzition in top._expr.nfa.delta:
-                top.nfa.delta.append(tranzition)
-            top.nfa.delta.append([top.nfa.initial_state, None, top._expr.nfa.initial_state])
-            top.nfa.delta.append([top.nfa.initial_state, None, top.nfa.final_state])
-            top.nfa.delta.append([top._expr.nfa.final_state, None, top.nfa.final_state])
-            top.nfa.delta.append([top._expr.nfa.final_state, None, top.nfa.initial_state])
-            Nfa.number_of_states += 2
+            convert_star_to_nfa(stack, top)
             return True and len(stack) != 1
 
     if isinstance(top, Plus):
         if top._expr != None:
-            stack.append(top)
-            top.nfa.initial_state = top._expr.nfa.initial_state
-            
-            previous_number_of_states: int = Nfa.number_of_states
-            for tranzition in top._expr.nfa.delta:
-                top.nfa.delta.append(tranzition)
-                Nfa.number_of_states += 2
-            
-            star_initial_state: int = top._expr.nfa.initial_state + Nfa.number_of_states - previous_number_of_states
-            star_final_state: int = top._expr.nfa.final_state + Nfa.number_of_states - previous_number_of_states
-            
-            for tranzition in top._expr.nfa.delta:
-                top.nfa.delta.append([tranzition[0] + Nfa.number_of_states - previous_number_of_states, tranzition[1], tranzition[2] + Nfa.number_of_states - previous_number_of_states])
-            top.nfa.delta.append([Nfa.number_of_states, None, star_initial_state])
-            top.nfa.delta.append([Nfa.number_of_states, None, Nfa.number_of_states + 1])
-            top.nfa.delta.append([star_final_state, None, Nfa.number_of_states])
-            top.nfa.delta.append([star_final_state, None, Nfa.number_of_states + 1])
-            top.nfa.delta.append([top._expr.nfa.final_state, None, Nfa.number_of_states])
-            top.nfa.final_state = Nfa.number_of_states + 1
-            Nfa.number_of_states += 2
+            convert_plus_to_nfa(stack, top)
             return True and len(stack) != 1
 
     stack.append(top)
     return False
+
+def convert_symbol_to_nfa(stack, top):
+    stack.append(top)
+    top.nfa.alphabet.add(top._char)
+    top.nfa.initial_state = Nfa.number_of_states
+    top.nfa.final_state = Nfa.number_of_states + 1
+    top.nfa.delta.append([top.nfa.initial_state, top.__str__(), top.nfa.final_state])
+    Nfa.number_of_states += 2
+    top.nfa._number_of_states = 2
+
+def convert_concat_to_nfa(stack, top):
+    stack.append(top)
+    top.nfa.initial_state = top._expr1.nfa.initial_state
+    top.nfa.final_state = top._expr2.nfa.final_state
+    top.nfa.alphabet = top.nfa.alphabet.union(top._expr1.nfa.alphabet).union(top._expr2.nfa.alphabet)
+    top.nfa.delta += top._expr1.nfa.delta + top._expr2.nfa.delta
+    top.nfa.delta.append([top._expr1.nfa.final_state, None, top._expr2.nfa.initial_state])
+    top.nfa._number_of_states = top._expr1.nfa._number_of_states + top._expr2.nfa._number_of_states
+
+def conver_union_to_nfa(stack, top):
+    stack.append(top)
+    top.nfa.initial_state = Nfa.number_of_states
+    top.nfa.final_state = Nfa.number_of_states + 1
+    top.nfa.alphabet = top.nfa.alphabet.union(top._expr1.nfa.alphabet).union(top._expr2.nfa.alphabet)
+    top.nfa.delta += top._expr1.nfa.delta + top._expr2.nfa.delta
+    top.nfa.delta.append([top.nfa.initial_state, None, top._expr1.nfa.initial_state])
+    top.nfa.delta.append([top.nfa.initial_state, None, top._expr2.nfa.initial_state])
+    top.nfa.delta.append([top._expr1.nfa.final_state, None, top.nfa.final_state])
+    top.nfa.delta.append([top._expr2.nfa.final_state, None, top.nfa.final_state])
+    Nfa.number_of_states += 2
+    top.nfa._number_of_states = top._expr1.nfa._number_of_states + top._expr2.nfa._number_of_states + 2
+
+def convert_star_to_nfa(stack, top):
+    stack.append(top)
+    top.nfa.initial_state = Nfa.number_of_states
+    top.nfa.final_state = Nfa.number_of_states + 1
+    top.nfa.alphabet = top.nfa.alphabet.union(top._expr.nfa.alphabet)
+    top.nfa.delta += top._expr.nfa.delta
+    top.nfa.delta.append([top.nfa.initial_state, None, top._expr.nfa.initial_state])
+    top.nfa.delta.append([top.nfa.initial_state, None, top.nfa.final_state])
+    top.nfa.delta.append([top._expr.nfa.final_state, None, top.nfa.final_state])
+    top.nfa.delta.append([top._expr.nfa.final_state, None, top.nfa.initial_state])
+    Nfa.number_of_states += 2
+    top.nfa._number_of_states = top._expr.nfa._number_of_states + 2
+
+def convert_plus_to_nfa(stack, top):
+    stack.append(top)
+    top.nfa.initial_state = top._expr.nfa.initial_state
+            
+    previous_number_of_states: int = Nfa.number_of_states
+    top.nfa.delta += top._expr.nfa.delta
+    top.nfa.alphabet = top.nfa.alphabet.union(top._expr.nfa.alphabet)
+    Nfa.number_of_states += top._expr.nfa._number_of_states
+
+    star_initial_state: int = top._expr.nfa.initial_state + Nfa.number_of_states - previous_number_of_states
+    star_final_state: int = top._expr.nfa.final_state + Nfa.number_of_states - previous_number_of_states
+            
+    for tranzition in top._expr.nfa.delta:
+        top.nfa.delta.append([tranzition[0] + Nfa.number_of_states - previous_number_of_states, tranzition[1], tranzition[2] + Nfa.number_of_states - previous_number_of_states])
+    top.nfa.delta.append([Nfa.number_of_states, None, star_initial_state])
+    top.nfa.delta.append([Nfa.number_of_states, None, Nfa.number_of_states + 1])
+    top.nfa.delta.append([star_final_state, None, Nfa.number_of_states])
+    top.nfa.delta.append([star_final_state, None, Nfa.number_of_states + 1])
+    top.nfa.delta.append([top._expr.nfa.final_state, None, Nfa.number_of_states])
+    top.nfa.final_state = Nfa.number_of_states + 1
+    Nfa.number_of_states += 2
+    top.nfa._number_of_states = 2 * top._expr.nfa._number_of_states + 2
 
 
 def reduce_stack(stack: List):
